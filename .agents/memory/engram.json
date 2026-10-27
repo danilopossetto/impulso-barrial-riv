@@ -1,0 +1,16 @@
+{
+  "system": "Antigravity Operating System",
+  "version": "1.0.0",
+  "trigger": "always_on",
+  "rule_file": ".agents/rules/antigravity_global_rules.md",
+  "gemini_entrypoint": "GEMINI.md",
+  "active_pillars": [
+    "Senior Product Engineer",
+    "Tech Stack Defaults (HTML5/TailwindCSS/JS Vanilla/LocalStorage)",
+    "Definition of Done (DoD 4 UI States)",
+    "Control de Guardas",
+    "Contexto Vivo (docs/contexto/)",
+    "SDD Adaptativo & Engram"
+  ],
+  "persisted_at": "2026-10-26T21:11:20-03:00"
+}
