@@ -265,12 +265,27 @@ const navigatorMock = {
   }
 };
 
+class FileReaderMock {
+  constructor() {
+    this.onload = null;
+    this.onerror = null;
+    this.result = null;
+  }
+  readAsDataURL(file) {
+    setTimeout(() => {
+      this.result = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      if (this.onload) this.onload({ target: { result: this.result } });
+    }, 10);
+  }
+}
+
 // Globalizar mocks en Node
 global.window = windowMock;
 global.document = documentMock;
 global.localStorage = localStorageMock;
 global.navigator = navigatorMock;
 global.requestAnimationFrame = windowMock.requestAnimationFrame;
+global.FileReader = FileReaderMock;
 
 // Registrar elementos estáticos de index.html
 const requiredIds = [
@@ -282,7 +297,7 @@ const requiredIds = [
   'register-form', 'reg-rubro', 'reg-barrio', 'reg-nombre', 'reg-telefono',
   'reg-experiencia', 'reg-servicios', 'reg-descripcion', 'reg-nombre-error',
   'reg-rubro-error', 'reg-barrio-error', 'reg-telefono-error', 'reg-descripcion-error',
-  'toast-container'
+  'toast-container', 'foto-input', 'foto-preview-img', 'foto-preview-icon'
 ];
 
 requiredIds.forEach(id => {
@@ -323,7 +338,7 @@ async function runTestSuite() {
   console.log('======================================================\n');
 
   let passedTests = 0;
-  let totalTests = 5;
+  let totalTests = 6;
 
   // Cargar app.js y disparar DOMContentLoaded
   const appCode = fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8');
@@ -493,6 +508,55 @@ async function runTestSuite() {
     }
   } catch (err) {
     console.error('❌ [FAIL] Test 5 con excepción:', err.message);
+  }
+
+  // ----------------------------------------------------
+  // TEST 6: Carga de Foto de Perfil (FileReader -> Base64)
+  // ----------------------------------------------------
+  try {
+    const regModal = elementsMap['register-modal'];
+    const regForm = elementsMap['register-form'];
+    const fotoInput = elementsMap['foto-input'];
+    const fotoPreviewImg = elementsMap['foto-preview-img'];
+    const fotoPreviewIcon = elementsMap['foto-preview-icon'];
+
+    elementsMap['btn-open-reg-1'].click();
+
+    // Simular selección de archivo de imagen
+    const fakeFile = {
+      name: 'perfil.png',
+      type: 'image/png',
+      size: 1024 * 50
+    };
+    fotoInput.files = [fakeFile];
+    fotoInput.dispatchEvent({ type: 'change', target: fotoInput });
+    await wait(30);
+
+    const isPreviewVisible = !fotoPreviewImg.classList.contains('hidden') && fotoPreviewImg.src.startsWith('data:image/png;base64');
+    const isIconHidden = fotoPreviewIcon.classList.contains('hidden');
+
+    // Llenar datos y enviar
+    elementsMap['reg-nombre'].value = 'Lucía Navarro';
+    elementsMap['reg-rubro'].value = 'Pintura';
+    elementsMap['reg-barrio'].value = 'Alberdi';
+    elementsMap['reg-telefono'].value = '3584119900';
+    elementsMap['reg-descripcion'].value = 'Pintura de interiores y empapelados de diseño.';
+
+    regForm.dispatchEvent({ type: 'submit', preventDefault: () => {} });
+    await wait(220);
+
+    const storedProfList = JSON.parse(localStorage.getItem('ob_profesionales') || '[]');
+    const profWithPhoto = storedProfList.find(p => p.nombre === 'Lucía Navarro');
+    const hasBase64Photo = profWithPhoto && profWithPhoto.foto && profWithPhoto.foto.startsWith('data:image/png;base64');
+
+    if (isPreviewVisible && isIconHidden && hasBase64Photo) {
+      console.log(`✅ [PASS] Test 6: Carga de foto con FileReader API, vista previa dinámica y persistencia en Base64 ('foto') verificada.`);
+      passedTests++;
+    } else {
+      console.error(`❌ [FAIL] Test 6: Falló carga de foto. Preview: ${isPreviewVisible}, IconHidden: ${isIconHidden}, HasBase64: ${!!hasBase64Photo}`);
+    }
+  } catch (err) {
+    console.error('❌ [FAIL] Test 6 con excepción:', err.message);
   }
 
   // ----------------------------------------------------

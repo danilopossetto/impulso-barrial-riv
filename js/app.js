@@ -51,9 +51,14 @@ document.addEventListener('DOMContentLoaded', () => {
     registerForm: document.getElementById('register-form'),
     registerRubroSelect: document.getElementById('reg-rubro'),
     registerBarrioSelect: document.getElementById('reg-barrio'),
+    fotoInput: document.getElementById('foto-input'),
+    fotoPreviewImg: document.getElementById('foto-preview-img'),
+    fotoPreviewIcon: document.getElementById('foto-preview-icon'),
     // Toast Container
     toastContainer: document.getElementById('toast-container')
   };
+
+  let selectedPhotoBase64 = null;
 
   // ==========================================
   // 2. UTILIDADES DE PERSISTENCIA (LOCALSTORAGE)
@@ -259,7 +264,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <div class="p-6">
             <div class="flex items-start gap-4">
               <div class="relative shrink-0">
-                <img src="${p.imagenUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'}" 
+                <img src="${p.foto || p.imagenUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'}" 
                      alt="${p.nombre}" 
                      class="w-16 h-16 rounded-2xl object-cover ring-2 ring-orange-500/30 group-hover:scale-105 transition-transform duration-300"
                      loading="lazy"
@@ -386,7 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         <!-- Encabezado del Perfil -->
         <div class="flex flex-col sm:flex-row items-center sm:items-start gap-5">
-          <img src="${p.imagenUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}" 
+          <img src="${p.foto || p.imagenUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&q=80'}" 
                alt="${p.nombre}" 
                class="w-24 h-24 rounded-2xl object-cover ring-4 ring-orange-500/20 shadow-lg shrink-0"
                onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(p.nombre)}&background=0f172a&color=f97316&bold=true'">
@@ -500,7 +505,18 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.registerModal.classList.add('hidden');
     document.body.classList.remove('overflow-hidden');
     elements.registerForm.reset();
+    resetPhotoPreview();
     clearFormErrors();
+  }
+
+  function resetPhotoPreview() {
+    selectedPhotoBase64 = null;
+    if (elements.fotoInput) elements.fotoInput.value = '';
+    if (elements.fotoPreviewImg && elements.fotoPreviewIcon) {
+      elements.fotoPreviewImg.src = '';
+      elements.fotoPreviewImg.classList.add('hidden');
+      elements.fotoPreviewIcon.classList.remove('hidden');
+    }
   }
 
   function clearFormErrors() {
@@ -566,6 +582,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ? serviciosRaw.split(',').map(s => s.trim()).filter(Boolean)
       : [rubro, 'Presupuestos sin cargo'];
 
+    // Foto seleccionada desde el dispositivo (Base64) o asignación automática con UI Avatars
+    const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0f172a&color=f97316&bold=true&size=300`;
+    const finalPhoto = selectedPhotoBase64 || defaultAvatar;
+
     const newProfessional = {
       id: 'prof_' + Date.now(),
       nombre,
@@ -580,7 +600,8 @@ document.addEventListener('DOMContentLoaded', () => {
       destacado: true,  // Beneficio de bienvenida
       disponibilidad: 'A coordinar por WhatsApp',
       servicios,
-      imagenUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0f172a&color=f97316&bold=true&size=300`,
+      foto: finalPhoto,
+      imagenUrl: finalPhoto,
       fechaRegistro: new Date().toISOString()
     };
 
@@ -701,6 +722,46 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.registerModalCloseBtn) elements.registerModalCloseBtn.addEventListener('click', closeRegisterModal);
     if (elements.registerModalBackdrop) elements.registerModalBackdrop.addEventListener('click', closeRegisterModal);
     if (elements.registerForm) elements.registerForm.addEventListener('submit', handleRegisterSubmit);
+
+    // Selección de Foto de Perfil desde el dispositivo (FileReader API)
+    if (elements.fotoInput) {
+      elements.fotoInput.addEventListener('change', (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) {
+          resetPhotoPreview();
+          return;
+        }
+
+        // Validación de tipo de archivo (solo imágenes)
+        if (!file.type.startsWith('image/')) {
+          showToast('El archivo debe ser una imagen válida (PNG, JPG, WebP)', 'error');
+          resetPhotoPreview();
+          return;
+        }
+
+        // Validación de tamaño (máx 4MB para persistencia en LocalStorage)
+        if (file.size > 4 * 1024 * 1024) {
+          showToast('La foto no debe superar los 4MB', 'error');
+          resetPhotoPreview();
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+          selectedPhotoBase64 = evt.target.result;
+          if (elements.fotoPreviewImg && elements.fotoPreviewIcon) {
+            elements.fotoPreviewImg.src = selectedPhotoBase64;
+            elements.fotoPreviewImg.classList.remove('hidden');
+            elements.fotoPreviewIcon.classList.add('hidden');
+          }
+        };
+        reader.onerror = function() {
+          showToast('Error al leer el archivo de imagen', 'error');
+          resetPhotoPreview();
+        };
+        reader.readAsDataURL(file);
+      });
+    }
 
     // Atajo de teclado: Escape cierra cualquier modal abierto
     window.addEventListener('keydown', (e) => {
