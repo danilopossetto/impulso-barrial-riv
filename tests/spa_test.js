@@ -111,8 +111,31 @@ class DOMElement {
     list.forEach(fn => fn(event));
   }
 
+  closest(selector) {
+    let current = this;
+    while (current) {
+      if (matchesSelector(current, selector)) return current;
+      current = current.parentElement;
+    }
+    return null;
+  }
+
   click() {
-    this.dispatchEvent({ type: 'click', target: this });
+    const event = { 
+      type: 'click', 
+      target: this, 
+      defaultPrevented: false, 
+      preventDefault: () => { event.defaultPrevented = true; } 
+    };
+    this.dispatchEvent(event);
+    let curr = this.parentElement;
+    while (curr) {
+      curr.dispatchEvent(event);
+      curr = curr.parentElement;
+    }
+    if (global.document && global.document.dispatchEvent) {
+      global.document.dispatchEvent(event);
+    }
   }
 
   reset() {
@@ -607,11 +630,40 @@ async function runTestSuite() {
     const showsCarlos = authContainerHtml2.includes('Carlos Peralta') && authContainerHtml2.includes('profesional');
     const hasManageBtn = !!documentMock.getElementById('open-profile-manage-btn');
 
-    if (isSofiaLoggedIn && showsSofia && isCarlosLoggedIn && showsCarlos && hasManageBtn) {
-      console.log(`✅ [PASS] Test 7: Autenticación demo funcional (Sofía: Cliente, Carlos: Profesional con acceso a 'Mi Perfil & Trabajos').`);
+    // 7.3 Cerrar Sesión (Logout reactivo y limpieza explícita de LocalStorage)
+    const logoutBtn = documentMock.getElementById('logout-btn');
+    if (!logoutBtn) throw new Error('No se encontró botón #logout-btn');
+    logoutBtn.click();
+    await wait(50);
+
+    const activeUserCleared = localStorage.getItem('ob_active_user');
+    const authContainerHtmlGuest = elementsMap['auth-nav-container'].innerHTML;
+    const showsGuest = authContainerHtmlGuest.includes('Ingresar Demo') && !authContainerHtmlGuest.includes('Cerrar Sesión');
+    const isManageBtnGone = !authContainerHtmlGuest.includes('open-profile-manage-btn');
+    const isScrollUnlocked = !document.body.classList.contains('overflow-hidden');
+
+    // 7.4 Alternancia libre de nuevo a Sofía y luego a Carlos (sin recargar)
+    btnSofia.click();
+    await wait(50);
+    const isReSofia = JSON.parse(localStorage.getItem('ob_active_user') || '{}').email === 'sofia@demo.com';
+
+    btnCarlos.click();
+    await wait(50);
+    const isReCarlos = JSON.parse(localStorage.getItem('ob_active_user') || '{}').email === 'carlos@demo.com';
+
+    // Volver a estado invitado
+    const logoutBtn2 = documentMock.getElementById('logout-btn');
+    if (logoutBtn2) logoutBtn2.click();
+    await wait(50);
+    const isFinalGuest = localStorage.getItem('ob_active_user') === null;
+
+    if (isSofiaLoggedIn && showsSofia && isCarlosLoggedIn && showsCarlos && hasManageBtn &&
+        activeUserCleared === null && showsGuest && isManageBtnGone && isScrollUnlocked &&
+        isReSofia && isReCarlos && isFinalGuest) {
+      console.log(`✅ [PASS] Test 7: Autenticación, cierre de sesión reactivo y alternancia libre de roles (Sofía <-> Carlos <-> Invitado) verificada.`);
       passedTests++;
     } else {
-      console.error(`❌ [FAIL] Test 7: Falló autenticación. Sofia: ${isSofiaLoggedIn}, Carlos: ${isCarlosLoggedIn}, ManageBtn: ${hasManageBtn}`);
+      console.error(`❌ [FAIL] Test 7: Falló alternancia de sesión. Sofia: ${isSofiaLoggedIn}, Carlos: ${isCarlosLoggedIn}, LogoutCleared: ${activeUserCleared === null}, Guest: ${showsGuest}, Scroll: ${isScrollUnlocked}, ReSofia: ${isReSofia}, ReCarlos: ${isReCarlos}`);
     }
   } catch (err) {
     console.error('❌ [FAIL] Test 7 con excepción:', err.message);

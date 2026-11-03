@@ -166,6 +166,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loginUser(email) {
+    // Limpieza explícita de sesión previa
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    } catch (err) {
+      console.warn('Error al resetear ACTIVE_USER en LocalStorage:', err);
+    }
+
     const demoUsers = window.DEMO_USERS || [];
     let user = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
@@ -183,22 +190,56 @@ document.addEventListener('DOMContentLoaded', () => {
 
     state.currentUser = user;
     setStoredData(STORAGE_KEYS.ACTIVE_USER, user);
+
+    // Cerrar modal de login y gestión de perfil si no corresponde
     closeLoginModal();
+    if (user.rol !== 'profesional') {
+      closeProfileManageModal();
+    }
+
+    // Re-renderizado reactivo inmediato de la barra de navegación
     renderAuthNav();
-    // Si el modal de detalle está abierto, refrescar para mostrar/ocultar formulario de reseña
+
+    // Re-ejecutar filtrado/catálogo para refrescar visibilidad de controles según nuevo rol
+    applyFilters();
+
+    // Si el modal de detalle está abierto, refrescarlo para adaptar los controles de reseña
     if (state.selectedProfessional) {
       openDetailModal(state.selectedProfessional);
+    } else {
+      document.body.classList.remove('overflow-hidden');
     }
+
     showToast(`¡Sesión iniciada como ${user.nombre} (${user.rol === 'profesional' ? 'Profesional' : 'Cliente'})!`, 'success');
   }
 
   function logoutUser() {
     state.currentUser = null;
-    localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+
+    // Limpiar explícitamente ob_active_user de LocalStorage
+    try {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    } catch (err) {
+      console.warn('Error al remover ob_active_user de LocalStorage:', err);
+    }
+
+    // Cerrar modales abiertos
+    closeLoginModal();
+    closeProfileManageModal();
+
+    // Re-renderizado reactivo inmediato de la barra de navegación (#auth-nav-container)
     renderAuthNav();
+
+    // Re-ejecutar filtrado/catálogo de profesionales
+    applyFilters();
+
+    // Si el modal de detalle está abierto, actualizar controles (pasa de cliente a invitado)
     if (state.selectedProfessional) {
       openDetailModal(state.selectedProfessional);
+    } else {
+      document.body.classList.remove('overflow-hidden');
     }
+
     showToast('Sesión cerrada correctamente', 'info');
   }
 
@@ -1177,6 +1218,54 @@ document.addEventListener('DOMContentLoaded', () => {
         reader.readAsDataURL(file);
       });
     }
+
+    // Event Delegation Global para Autenticación, Roles y Modales
+    document.addEventListener('click', (e) => {
+      if (!e.target) return;
+
+      // 1. Cerrar Sesión
+      const logoutBtn = e.target.closest ? e.target.closest('#logout-btn') : (e.target.id === 'logout-btn' ? e.target : null);
+      if (logoutBtn) {
+        if (e.preventDefault) e.preventDefault();
+        logoutUser();
+        return;
+      }
+
+      // 2. Conmutar a Sofía Martínez (Cliente Demo)
+      const toSofiaBtn = e.target.closest ? (e.target.closest('#login-demo-sofia-btn') || e.target.closest('#switch-to-sofia-btn')) : (['login-demo-sofia-btn', 'switch-to-sofia-btn'].includes(e.target.id) ? e.target : null);
+      if (toSofiaBtn) {
+        if (e.preventDefault) e.preventDefault();
+        loginUser('sofia@demo.com');
+        return;
+      }
+
+      // 3. Conmutar a Carlos Peralta (Profesional Demo)
+      const toCarlosBtn = e.target.closest ? (e.target.closest('#login-demo-carlos-btn') || e.target.closest('#switch-to-carlos-btn')) : (['login-demo-carlos-btn', 'switch-to-carlos-btn'].includes(e.target.id) ? e.target : null);
+      if (toCarlosBtn) {
+        if (e.preventDefault) e.preventDefault();
+        loginUser('carlos@demo.com');
+        return;
+      }
+
+      // 4. Abrir Modal de Login
+      const openLogin = e.target.closest ? (e.target.closest('#open-login-btn') || e.target.closest('#open-login-from-reviews')) : (['open-login-btn', 'open-login-from-reviews'].includes(e.target.id) ? e.target : null);
+      if (openLogin) {
+        if (e.preventDefault) e.preventDefault();
+        if (openLogin.id === 'open-login-from-reviews') {
+          closeDetailModal();
+        }
+        openLoginModal();
+        return;
+      }
+
+      // 5. Abrir Gestión de Perfil Profesional
+      const openPro = e.target.closest ? e.target.closest('#open-profile-manage-btn') : (e.target.id === 'open-profile-manage-btn' ? e.target : null);
+      if (openPro) {
+        if (e.preventDefault) e.preventDefault();
+        openProfileManageModal();
+        return;
+      }
+    });
 
     // Modal de Login
     if (elements.loginModalCloseBtn) elements.loginModalCloseBtn.addEventListener('click', closeLoginModal);
