@@ -73,3 +73,28 @@ Este documento registra las decisiones clave tomadas en el proyecto **Oficios Ba
   2. 📭 **Empty State**: Ilustración y mensaje motivador cuando no haya resultados en el filtro Rubro + Barrio.
   3. ⚠️ **Error State**: Validación visual de campos con mensajes claros en el formulario de registro.
   4. ✅ **Success State**: Notificación Toast emergente confirmando acciones exitosas (registro, copia de teléfono, guardado).
+
+---
+
+## [ADR-008] Sistema de Autenticación Rápida Demo y Roles Dinámicos (Cliente vs Profesional)
+* **Fecha**: 2026-11-03
+* **Estado**: Aprobado
+* **Contexto**: Para la evaluación académica y demostraciones en vivo sin backend, se requiere simular la experiencia completa de dos roles esenciales: Vecino/Cliente (que busca y califica) y Profesional (que gestiona su propio perfil y muestra su trabajo).
+* **Decisión**:
+  - Implementar selector visual en la barra de navegación y modal de Login con 1 clic para cuentas pre-cargadas (`sofia@demo.com` rol Cliente, `carlos@demo.com` rol Profesional).
+  - Persistencia del usuario activo en `ob_active_user` en `LocalStorage`.
+  - Roles adaptativos:
+    - **Cliente**: Acceso exclusivo para enviar calificaciones (1 a 5 estrellas) y opiniones en el modal de detalle.
+    - **Profesional**: Acceso exclusivo al panel modal "Mi Perfil & Trabajos" con subida múltiple de fotos a la galería de trabajos mediante FileReader API (Base64) y edición de datos técnicos.
+
+---
+
+## [ADR-009] Matrícula Técnica Opcional con Badge Condicional y Reseñas en Tiempo Real
+* **Fecha**: 2026-11-03
+* **Estado**: Aprobado
+* **Contexto**: No todos los trabajadores independientes cuentan con matrícula habilitante (ej. plomeros prácticos, jardineros), pero aquellos que sí la tienen (ej. electricistas ERSeP, gasistas matriculados Ecogas) necesitan certificarla para diferenciarse y generar confianza. Además, las reseñas comunitarias deben recalcular la reputación en vivo.
+* **Decisión**:
+  - Campo `matricula` estrictamente opcional tanto en el formulario de registro como en la edición de perfil.
+  - Si el profesional registra su matrícula (ej. `"ERSeP Cat. III - Mat. 4812"`), se renderiza automáticamente un badge visual destacado `Matriculado` en su modal de detalle. Si no la posee (`null` o vacío), no se muestra badge ni se bloquea el registro con errores.
+  - Al recibir una nueva reseña de un cliente autenticado, las estadísticas (`calificacion` promedio y `resenasCount`) se recalculan inmediatamente en memoria y se sincronizan en `LocalStorage` (`ob_reviews`), actualizando las tarjetas del catálogo y el modal sin recargar la página.
+

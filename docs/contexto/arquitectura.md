@@ -64,27 +64,59 @@ EfiPossetto/
 
 ## 4. Modelo de Datos del Cliente (Entidades)
 
-### 4.1 Entidad `Profesional`
+### 4.1 Entidad `UsuarioDemo` (Autenticación Demo)
+```javascript
+{
+  id: "user_carlos",
+  email: "carlos@demo.com",
+  nombre: "Carlos Peralta (Tato)",
+  rol: "profesional",             // "cliente" | "profesional"
+  linkedProfessionalId: "prof_001", // Solo para rol profesional
+  avatar: "https://images.unsplash.com/..."
+}
+```
+
+### 4.2 Entidad `Profesional`
 ```javascript
 {
   id: "prof_001",
-  nombre: "Carlos Peralta",
+  nombre: "Carlos 'Tato' Peralta",
   rubro: "Electricidad",         // Electricidad, Plomería, Albañilería, Gasista, Pintura, etc.
   barrio: "Alberdi",             // Alberdi, Banda Norte, IPV, Centro, Bimaco, etc.
-  telefono: "+5493584123456",    // Formato internacional para link directo a WhatsApp
-  experiencia: "12 años",
+  telefono: "3584112233",        // Formato local sanitizado a internacional wa.me/549358...
+  experiencia: "14 años de experiencia",
+  matricula: "ERSeP Cat. III - Mat. 4812", // Opcional (string | null): Muestra badge condicional
   descripcion: "Instalaciones domiciliarias e industriales, recableado y urgencias 24hs.",
-  calificacion: 4.9,             // Escala de 1 a 5
-  resenasCount: 28,
+  calificacion: 4.9,             // Promedio recalculado dinámicamente según reseñas
+  resenasCount: 3,               // Conteo acumulado de reseñas
   verificado: true,              // Badge de verificación por Impulso Barrial RIV S.A.S.
   destacado: true,               // Nivel de membresía (Freemium: true para destacados)
-  imagenUrl: "assets/img/profesionales/carlos.jpg",
+  foto: "data:image/png;base64,...", // Foto de perfil (Base64 o URL)
+  galeria: [                     // Galería de trabajos realizados (Base64 o URLs)
+    "https://images.unsplash.com/...",
+    "data:image/jpeg;base64,..."
+  ],
   fechaRegistro: "2026-03-15"
 }
 ```
 
-### 4.2 Esquema de LocalStorage
-- `ob_profesionales`: Array serializado con los profesionales agregados por los usuarios (se concatena con los datos base de `data.js`).
+### 4.3 Entidad `Reseña`
+```javascript
+{
+  id: "rev_001",
+  profesionalId: "prof_001",
+  autorNombre: "Sofía Martínez",
+  autorEmail: "sofia@demo.com",
+  calificacion: 5,               // Entero de 1 a 5 estrellas
+  comentario: "Excelente electricista, resolvió el cortocircuito en menos de 1 hora.",
+  fecha: "2026-10-28"
+}
+```
+
+### 4.4 Esquema de LocalStorage
+- `ob_profesionales`: Array serializado con los profesionales registrados o modificados por el usuario.
+- `ob_active_user`: Objeto con la sesión simulada del usuario activo (`sofia@demo.com` o `carlos@demo.com`).
+- `ob_reviews`: Array serializado con todas las reseñas comunitarias (semilla + publicadas por clientes).
 - `ob_theme`: String `'dark'` | `'light'` indicando la preferencia visual activa.
 - `ob_favoritos`: Array de IDs de profesionales marcados como favoritos por el vecino.
 

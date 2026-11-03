@@ -10,18 +10,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const STORAGE_KEYS = {
     PROFESIONALES: 'ob_profesionales',
     THEME: 'ob_theme',
-    FAVORITOS: 'ob_favoritos'
+    FAVORITOS: 'ob_favoritos',
+    ACTIVE_USER: 'ob_active_user',
+    REVIEWS: 'ob_reviews'
   };
 
   const state = {
     professionals: [],
+    reviews: [],
+    currentUser: null,
     selectedRubro: 'Todos los rubros',
     selectedBarrio: 'Todos los barrios',
     searchQuery: '',
-    onlyFavorites: false,
-    favorites: getStoredData(STORAGE_KEYS.FAVORITOS, []),
+    favorites: [],
     selectedProfessional: null,
-    isLoading: false
+    isLoading: false,
+    selectedReviewRating: 5
   };
 
   // Elementos del DOM
@@ -38,6 +42,7 @@ document.addEventListener('DOMContentLoaded', () => {
     themeToggleBtn: document.getElementById('theme-toggle-btn'),
     themeIconLight: document.getElementById('theme-icon-light'),
     themeIconDark: document.getElementById('theme-icon-dark'),
+    authNavContainer: document.getElementById('auth-nav-container'),
     // Modal de Detalle
     detailModal: document.getElementById('detail-modal'),
     detailModalBackdrop: document.getElementById('detail-modal-backdrop'),
@@ -51,9 +56,30 @@ document.addEventListener('DOMContentLoaded', () => {
     registerForm: document.getElementById('register-form'),
     registerRubroSelect: document.getElementById('reg-rubro'),
     registerBarrioSelect: document.getElementById('reg-barrio'),
+    registerMatriculaInput: document.getElementById('reg-matricula'),
     fotoInput: document.getElementById('foto-input'),
     fotoPreviewImg: document.getElementById('foto-preview-img'),
     fotoPreviewIcon: document.getElementById('foto-preview-icon'),
+    // Modal de Login
+    loginModal: document.getElementById('login-modal'),
+    loginModalBackdrop: document.getElementById('login-modal-backdrop'),
+    loginModalCloseBtn: document.getElementById('login-modal-close'),
+    loginForm: document.getElementById('login-form'),
+    loginEmailInput: document.getElementById('login-email-input'),
+    loginEmailError: document.getElementById('login-email-error'),
+    loginDemoSofiaBtn: document.getElementById('login-demo-sofia-btn'),
+    loginDemoCarlosBtn: document.getElementById('login-demo-carlos-btn'),
+    // Modal de Gestión del Profesional
+    profileManageModal: document.getElementById('profile-manage-modal'),
+    profileManageBackdrop: document.getElementById('profile-manage-backdrop'),
+    profileManageCloseBtn: document.getElementById('profile-manage-close'),
+    profileManageForm: document.getElementById('profile-manage-form'),
+    manageMatricula: document.getElementById('manage-matricula'),
+    manageTelefono: document.getElementById('manage-telefono'),
+    manageDisponibilidad: document.getElementById('manage-disponibilidad'),
+    manageDescripcion: document.getElementById('manage-descripcion'),
+    manageGalleryGrid: document.getElementById('manage-gallery-grid'),
+    galleryInput: document.getElementById('gallery-input'),
     // Toast Container
     toastContainer: document.getElementById('toast-container')
   };
@@ -132,21 +158,187 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 5. CARGA DE DATOS Y FILTRADO COMBINADO
+  // 5. AUTENTICACIÓN Y USUARIOS DEMO
+  // ==========================================
+  function initAuth() {
+    state.currentUser = getStoredData(STORAGE_KEYS.ACTIVE_USER, null);
+    renderAuthNav();
+  }
+
+  function loginUser(email) {
+    const demoUsers = window.DEMO_USERS || [];
+    let user = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+    if (!user) {
+      // Si el email no coincide con los demo, creamos un cliente con ese email
+      user = {
+        id: 'user_' + Date.now(),
+        email: email,
+        nombre: email.split('@')[0],
+        rol: 'cliente',
+        barrio: 'Río Cuarto',
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(email)}&background=0f172a&color=f97316&bold=true`
+      };
+    }
+
+    state.currentUser = user;
+    setStoredData(STORAGE_KEYS.ACTIVE_USER, user);
+    closeLoginModal();
+    renderAuthNav();
+    // Si el modal de detalle está abierto, refrescar para mostrar/ocultar formulario de reseña
+    if (state.selectedProfessional) {
+      openDetailModal(state.selectedProfessional);
+    }
+    showToast(`¡Sesión iniciada como ${user.nombre} (${user.rol === 'profesional' ? 'Profesional' : 'Cliente'})!`, 'success');
+  }
+
+  function logoutUser() {
+    state.currentUser = null;
+    localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
+    renderAuthNav();
+    if (state.selectedProfessional) {
+      openDetailModal(state.selectedProfessional);
+    }
+    showToast('Sesión cerrada correctamente', 'info');
+  }
+
+  function renderAuthNav() {
+    if (!elements.authNavContainer) return;
+    const user = state.currentUser;
+
+    if (!user) {
+      // Estado Invitado: Botón Iniciar Sesión y atajos rápidos
+      elements.authNavContainer.innerHTML = `
+        <button type="button" 
+                id="open-login-btn" 
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs sm:text-sm font-semibold transition-all">
+          <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"/></svg>
+          <span>Ingresar Demo</span>
+        </button>
+      `;
+      const btn = document.getElementById('open-login-btn');
+      if (btn) btn.addEventListener('click', openLoginModal);
+    } else {
+      // Usuario autenticado
+      const isPro = user.rol === 'profesional';
+      elements.authNavContainer.innerHTML = `
+        <div class="flex items-center gap-2">
+          <!-- Datos del usuario -->
+          <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+            <img src="${user.avatar}" alt="${user.nombre}" class="w-6 h-6 rounded-lg object-cover ring-1 ring-orange-500/50">
+            <div class="hidden sm:flex flex-col text-left">
+              <span class="text-xs font-bold text-slate-900 dark:text-white leading-tight truncate max-w-[120px]">${user.nombre}</span>
+              <span class="text-[10px] font-semibold ${isPro ? 'text-orange-500' : 'text-blue-500'} uppercase leading-none">${user.rol}</span>
+            </div>
+          </div>
+
+          <!-- Botón Especial para el Profesional: Gestionar Trabajos -->
+          ${isPro ? `
+            <button type="button" 
+                    id="open-profile-manage-btn" 
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white text-xs font-bold shadow-sm transition-all" 
+                    title="Editar mi perfil y subir fotos a mi galería">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              <span class="hidden md:inline">Mi Perfil & Trabajos</span>
+              <span class="md:hidden">Mi Perfil</span>
+            </button>
+          ` : ''}
+
+          <!-- Selector rápido de cambio / salir -->
+          <div class="relative group">
+            <button type="button" 
+                    id="auth-menu-btn" 
+                    class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
+                    title="Cambiar usuario o cerrar sesión">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
+            </button>
+            <div class="absolute right-0 top-full mt-2 w-48 py-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 hidden group-hover:block z-50">
+              <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700">Cambiar Perfil</div>
+              <button type="button" id="switch-to-sofia-btn" class="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-blue-500"></span> Sofía (Cliente Demo)
+              </button>
+              <button type="button" id="switch-to-carlos-btn" class="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-orange-500"></span> Carlos (Profesional Demo)
+              </button>
+              <div class="border-t border-slate-100 dark:border-slate-700 my-1"></div>
+              <button type="button" id="logout-btn" class="w-full text-left px-3 py-2 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                Cerrar Sesión
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Listeners
+      const openProBtn = document.getElementById('open-profile-manage-btn');
+      if (openProBtn) openProBtn.addEventListener('click', openProfileManageModal);
+
+      const toSofia = document.getElementById('switch-to-sofia-btn');
+      if (toSofia) toSofia.addEventListener('click', () => loginUser('sofia@demo.com'));
+
+      const toCarlos = document.getElementById('switch-to-carlos-btn');
+      if (toCarlos) toCarlos.addEventListener('click', () => loginUser('carlos@demo.com'));
+
+      const logout = document.getElementById('logout-btn');
+      if (logout) logout.addEventListener('click', logoutUser);
+    }
+  }
+
+  function openLoginModal() {
+    if (!elements.loginModal) return;
+    elements.loginModal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+    if (elements.loginEmailError) elements.loginEmailError.classList.add('hidden');
+  }
+
+  function closeLoginModal() {
+    if (!elements.loginModal) return;
+    elements.loginModal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+    if (elements.loginForm) elements.loginForm.reset();
+  }
+
+  // ==========================================
+  // 6. CARGA DE DATOS Y RECÁLCULO DINÁMICO
   // ==========================================
   function loadInitialData() {
     const userProfessionals = getStoredData(STORAGE_KEYS.PROFESIONALES, []);
     const initialList = window.INITIAL_PROFESSIONALS || [];
     state.professionals = [...userProfessionals, ...initialList];
+    
+    // Carga de reseñas (seed + storage)
+    const storedReviews = getStoredData(STORAGE_KEYS.REVIEWS, null);
+    if (storedReviews) {
+      state.reviews = storedReviews;
+    } else {
+      state.reviews = window.INITIAL_REVIEWS || [];
+      setStoredData(STORAGE_KEYS.REVIEWS, state.reviews);
+    }
+
+    // Recalcular estadísticas para todos los profesionales
+    state.professionals.forEach(p => recalculateStats(p.id));
+
     populateFilterSelects();
     applyFilters();
+  }
+
+  function recalculateStats(profId) {
+    const profReviews = state.reviews.filter(r => r.profesionalId === profId);
+    const prof = state.professionals.find(p => p.id === profId);
+    if (!prof) return;
+
+    if (profReviews.length > 0) {
+      const sum = profReviews.reduce((acc, r) => acc + Number(r.calificacion), 0);
+      prof.calificacion = Number((sum / profReviews.length).toFixed(1));
+      prof.resenasCount = profReviews.length;
+    }
   }
 
   function populateFilterSelects() {
     const barrios = window.BARRIOS_RIO_CUARTO || ['Todos los barrios', 'Alberdi', 'Banda Norte', 'Centro'];
     const rubros = window.RUBROS_OFICIOS || ['Todos los rubros', 'Electricidad', 'Plomería'];
 
-    // Filtros de búsqueda
     elements.rubroSelect.innerHTML = rubros
       .map(r => `<option value="${r}">${r}</option>`)
       .join('');
@@ -154,7 +346,6 @@ document.addEventListener('DOMContentLoaded', () => {
       .map(b => `<option value="${b}">${b}</option>`)
       .join('');
 
-    // Selects del formulario de registro (excluyendo "Todos...")
     elements.registerRubroSelect.innerHTML = '<option value="">Seleccioná tu oficio...</option>' +
       rubros
         .filter(r => !r.startsWith('Todos'))
@@ -169,7 +360,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function applyFilters() {
-    // Activar estado de carga transitorio (DoD Loading State)
     showLoadingState(true);
 
     setTimeout(() => {
@@ -178,24 +368,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const barrio = state.selectedBarrio;
 
       const filtered = state.professionals.filter(p => {
-        // Filtro por Rubro
         const matchesRubro = (rubro === 'Todos los rubros') || (p.rubro === rubro);
-
-        // Filtro por Barrio
         const matchesBarrio = (barrio === 'Todos los barrios') || (p.barrio === barrio);
-
-        // Búsqueda por texto (nombre, rubro, barrio, descripción o servicios)
         const matchesQuery = !q ||
           p.nombre.toLowerCase().includes(q) ||
           p.rubro.toLowerCase().includes(q) ||
           p.barrio.toLowerCase().includes(q) ||
+          (p.matricula && p.matricula.toLowerCase().includes(q)) ||
           (p.descripcion && p.descripcion.toLowerCase().includes(q)) ||
           (p.servicios && p.servicios.some(s => s.toLowerCase().includes(q)));
 
         return matchesRubro && matchesBarrio && matchesQuery;
       });
 
-      // Ordenar: Destacados primero, luego por calificación
       filtered.sort((a, b) => {
         if (a.destacado && !b.destacado) return -1;
         if (!a.destacado && b.destacado) return 1;
@@ -218,7 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 6. RENDERIZADO DE ESTADOS UI (DoD)
+  // 7. RENDERIZADO DE ESTADOS UI (DoD)
   // ==========================================
   function showLoadingState(show) {
     state.isLoading = show;
@@ -232,12 +417,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderCards(list) {
-    // Actualizar contador
     const count = list.length;
     elements.counter.textContent = `${count} ${count === 1 ? 'profesional encontrado' : 'profesionales encontrados'}`;
 
     if (count === 0) {
-      // 📭 Empty State
       elements.grid.classList.add('hidden');
       elements.emptyState.classList.remove('hidden');
       return;
@@ -247,7 +430,6 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.grid.classList.remove('hidden');
 
     elements.grid.innerHTML = list.map(p => {
-      const isFav = state.favorites.includes(p.id);
       const isDestacado = p.destacado;
       const stars = renderStarRating(p.calificacion || 5);
 
@@ -277,9 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
 
               <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-1.5 flex-wrap">
-                  <h3 class="text-lg font-bold text-slate-900 dark:text-white truncate">${p.nombre}</h3>
-                </div>
+                <h3 class="text-lg font-bold text-slate-900 dark:text-white truncate">${p.nombre}</h3>
                 <p class="text-sm font-semibold text-orange-600 dark:text-orange-400 mt-0.5">${p.rubro}</p>
                 <div class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
                   <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -288,13 +468,21 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>
             </div>
 
-            <!-- Calificación y Reseñas -->
+            <!-- Badge Condicional: Matrícula Profesional Opcional -->
+            ${p.matricula ? `
+              <div class="mt-3 flex items-center gap-1.5 text-xs text-blue-700 dark:text-blue-300 font-semibold bg-blue-50 dark:bg-blue-950/40 px-2.5 py-1 rounded-lg border border-blue-200/60 dark:border-blue-900/40">
+                <svg class="w-3.5 h-3.5 fill-current shrink-0" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                <span class="truncate">Matriculado: ${p.matricula}</span>
+              </div>
+            ` : ''}
+
+            <!-- Calificación y Reseñas en tiempo real -->
             <div class="mt-4 flex items-center justify-between text-xs border-y border-slate-100 dark:border-slate-700/60 py-2.5">
               <div class="flex items-center gap-1.5">
                 <span class="font-bold text-slate-800 dark:text-slate-100 text-sm">${p.calificacion.toFixed(1)}</span>
                 <div class="flex text-amber-400">${stars}</div>
               </div>
-              <span class="text-slate-400">(${p.resenasCount || 1} opiniones)</span>
+              <span class="text-slate-400 font-medium">(${p.resenasCount || 0} ${p.resenasCount === 1 ? 'opinión' : 'opiniones'})</span>
             </div>
 
             <!-- Descripción Corta -->
@@ -302,15 +490,11 @@ document.addEventListener('DOMContentLoaded', () => {
               ${p.descripcion || 'Profesional de confianza listo para presupuestos y atención personalizada.'}
             </p>
 
-            <!-- Tags de Servicios Principales -->
-            ${p.servicios && p.servicios.length > 0 ? `
-              <div class="mt-3 flex flex-wrap gap-1.5">
-                ${p.servicios.slice(0, 2).map(s => `
-                  <span class="inline-block px-2 py-0.5 text-xs font-medium bg-slate-100 dark:bg-slate-700/80 text-slate-700 dark:text-slate-300 rounded-md">
-                    ${s}
-                  </span>
-                `).join('')}
-                ${p.servicios.length > 2 ? `<span class="text-xs text-slate-400 self-center">+${p.servicios.length - 2} más</span>` : ''}
+            <!-- Galería Preview Thumbnail -->
+            ${p.galeria && p.galeria.length > 0 ? `
+              <div class="mt-3 flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <svg class="w-3.5 h-3.5 text-orange-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                <span>${p.galeria.length} ${p.galeria.length === 1 ? 'trabajo fotografiado' : 'trabajos fotografiados'}</span>
               </div>
             ` : ''}
           </div>
@@ -338,7 +522,6 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
     }).join('');
 
-    // Adjuntar listeners a botones "Ver Perfil"
     document.querySelectorAll('.view-detail-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const id = btn.getAttribute('data-id');
@@ -365,26 +548,39 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 7. MODAL DE DETALLE DEL PROFESIONAL
+  // 8. MODAL DE DETALLE DEL PROFESIONAL
   // ==========================================
   function openDetailModal(p) {
     state.selectedProfessional = p;
+    recalculateStats(p.id);
     const waUrl = getWhatsAppUrl(p.telefono, p.nombre, p.rubro);
     const cleanPhone = formatWhatsAppNumber(p.telefono);
 
+    // Obtener opiniones del profesional
+    const profReviews = state.reviews.filter(r => r.profesionalId === p.id);
+    const user = state.currentUser;
+    const isCliente = user && user.rol === 'cliente';
+    const isPro = user && user.rol === 'profesional';
+
     elements.detailModalContent.innerHTML = `
-      <div class="relative p-6 sm:p-8">
-        <!-- Badge de Destacado / Verificado -->
-        <div class="flex items-center gap-2 mb-4">
+      <div class="relative p-6 sm:p-8 max-h-[85vh] overflow-y-auto">
+        <!-- Badges Superiores -->
+        <div class="flex flex-wrap items-center gap-2 mb-4">
           ${p.verificado ? `
             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
               <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-              Verificado por Impulso Barrial RIV
+              Verificado
             </span>
           ` : ''}
           ${p.destacado ? `
             <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300">
-              ★ Profesional Destacado
+              ★ Destacado
+            </span>
+          ` : ''}
+          ${p.matricula ? `
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+              <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+              Matriculado (${p.matricula})
             </span>
           ` : ''}
         </div>
@@ -411,14 +607,14 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
 
-        <!-- Calificaciones y Confianza -->
+        <!-- Calificaciones y Turnos -->
         <div class="mt-6 p-4 rounded-xl bg-slate-50 dark:bg-slate-700/50 flex items-center justify-between">
           <div>
             <div class="flex items-center gap-2">
               <span class="text-xl font-black text-slate-900 dark:text-white">${p.calificacion.toFixed(1)}</span>
               <div class="flex text-amber-400">${renderStarRating(p.calificacion)}</div>
             </div>
-            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Basado en ${p.resenasCount || 1} contrataciones de vecinos</p>
+            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Basado en ${p.resenasCount || 0} contrataciones de vecinos</p>
           </div>
           <div class="text-right">
             <span class="text-xs uppercase tracking-wider font-semibold text-slate-400 block">Horario / Turnos</span>
@@ -426,28 +622,119 @@ document.addEventListener('DOMContentLoaded', () => {
           </div>
         </div>
 
-        <!-- Biografía y Especialidad -->
+        <!-- Descripción -->
         <div class="mt-6">
           <h4 class="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Sobre este profesional</h4>
           <p class="mt-2 text-slate-700 dark:text-slate-200 text-sm leading-relaxed whitespace-pre-line">
-            ${p.descripcion || 'Profesional matriculado o avalado por la comunidad con amplia experiencia en la zona.'}
+            ${p.descripcion || 'Profesional de confianza listo para presupuestos y atención personalizada.'}
           </p>
         </div>
 
-        <!-- Lista de Servicios y Trabajos que realiza -->
-        ${p.servicios && p.servicios.length > 0 ? `
-          <div class="mt-6">
-            <h4 class="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Servicios frecuentes</h4>
-            <ul class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-              ${p.servicios.map(s => `
-                <li class="flex items-center gap-2 p-2 rounded-lg bg-slate-100 dark:bg-slate-700/70 text-slate-800 dark:text-slate-200">
-                  <svg class="w-4 h-4 text-emerald-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                  <span>${s}</span>
-                </li>
-              `).join('')}
-            </ul>
+        <!-- Galería de Trabajos Realizados (Requerimiento 3) -->
+        <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <div class="flex items-center justify-between mb-3">
+            <h4 class="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              <span>Galería de Trabajos Realizados (${(p.galeria && p.galeria.length) || 0})</span>
+            </h4>
           </div>
-        ` : ''}
+          ${p.galeria && p.galeria.length > 0 ? `
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+              ${p.galeria.map((img, idx) => `
+                <div class="relative group rounded-xl overflow-hidden aspect-video bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
+                  <img src="${img}" alt="Trabajo ${idx + 1}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy">
+                </div>
+              `).join('')}
+            </div>
+          ` : `
+            <div class="p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-500 dark:text-slate-400">
+              El profesional aún no ha subido fotos de sus obras o reparaciones.
+            </div>
+          `}
+        </div>
+
+        <!-- Opiniones y Reseñas (Requerimiento 2) -->
+        <div class="mt-6 pt-6 border-t border-slate-200 dark:border-slate-700">
+          <div class="flex items-center justify-between mb-4">
+            <h4 class="text-sm font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
+              <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              <span>Opiniones de la Comunidad (${profReviews.length})</span>
+            </h4>
+          </div>
+
+          <!-- Formulario para dejar reseña (Solo Cliente autenticado) -->
+          <div class="mb-6 p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/40 border border-slate-200 dark:border-slate-700">
+            ${isCliente ? `
+              <form id="review-submit-form" class="space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-slate-900 dark:text-white">Dejar tu calificación:</span>
+                  <div id="star-selector" class="flex gap-1 cursor-pointer text-amber-400">
+                    <!-- 5 Estrellas interactivas -->
+                    <button type="button" class="star-btn p-0.5 hover:scale-110 transition-transform" data-rating="1">★</button>
+                    <button type="button" class="star-btn p-0.5 hover:scale-110 transition-transform" data-rating="2">★</button>
+                    <button type="button" class="star-btn p-0.5 hover:scale-110 transition-transform" data-rating="3">★</button>
+                    <button type="button" class="star-btn p-0.5 hover:scale-110 transition-transform" data-rating="4">★</button>
+                    <button type="button" class="star-btn p-0.5 hover:scale-110 transition-transform" data-rating="5">★</button>
+                  </div>
+                </div>
+                <textarea id="review-comment-input" 
+                          rows="2" 
+                          placeholder="Contá tu experiencia con este profesional (puntualidad, prolijidad, precio)..." 
+                          class="w-full px-3.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-orange-500 focus:outline-none"></textarea>
+                <div class="flex justify-between items-center">
+                  <span id="star-hint" class="text-[11px] text-slate-500">Calificación: <strong>5 estrellas</strong></span>
+                  <button type="submit" 
+                          id="submit-review-btn" 
+                          class="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-xs shadow-md transition-all">
+                    Publicar Opinión
+                  </button>
+                </div>
+              </form>
+            ` : !user ? `
+              <div class="flex items-center justify-between gap-4">
+                <p class="text-xs text-slate-500 dark:text-slate-400">
+                  ¿Contrataste a este profesional? <strong>Iniciá sesión como Cliente</strong> para calificarlo.
+                </p>
+                <button type="button" 
+                        id="open-login-from-reviews" 
+                        class="px-3 py-1.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs shrink-0 transition-colors">
+                  Ingresar
+                </button>
+              </div>
+            ` : `
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Estás navegando como <strong>${user.nombre} (${user.rol})</strong>. Las opiniones son exclusivas de clientes y vecinos que contrataron servicios.
+              </p>
+            `}
+          </div>
+
+          <!-- Listado de Reseñas -->
+          <div class="space-y-3">
+            ${profReviews.length > 0 ? profReviews.map(r => `
+              <div class="p-3.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/80 shadow-xs">
+                <div class="flex items-center justify-between mb-1.5">
+                  <div class="flex items-center gap-2">
+                    <span class="w-6 h-6 rounded-full bg-orange-100 dark:bg-orange-950/60 text-orange-600 font-bold text-xs flex items-center justify-center">
+                      ${r.autorNombre.charAt(0)}
+                    </span>
+                    <span class="text-xs font-bold text-slate-900 dark:text-white">${r.autorNombre}</span>
+                  </div>
+                  <div class="flex items-center gap-1.5">
+                    <div class="flex text-amber-400 text-xs">${renderStarRating(r.calificacion)}</div>
+                    <span class="text-[10px] text-slate-400">${r.fecha || 'Reciente'}</span>
+                  </div>
+                </div>
+                <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed pl-8">
+                  "${r.comentario}"
+                </p>
+              </div>
+            `).join('') : `
+              <p class="text-xs text-slate-400 dark:text-slate-500 italic py-2">
+                Aún no hay opiniones publicadas para este profesional. ¡Sé el primero en dejar una reseña!
+              </p>
+            `}
+          </div>
+        </div>
 
         <!-- Call to Action WhatsApp y Copiar Teléfono -->
         <div class="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-3">
@@ -470,7 +757,7 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     `;
 
-    // Event listener para copiar teléfono
+    // Listeners del modal de detalle
     const copyBtn = document.getElementById('copy-phone-btn');
     if (copyBtn) {
       copyBtn.addEventListener('click', () => {
@@ -478,6 +765,69 @@ document.addEventListener('DOMContentLoaded', () => {
         navigator.clipboard.writeText(phone)
           .then(() => showToast(`Teléfono ${phone} copiado al portapapeles`, 'success'))
           .catch(() => showToast(`Teléfono: ${phone}`, 'info'));
+      });
+    }
+
+    const openLoginBtn = document.getElementById('open-login-from-reviews');
+    if (openLoginBtn) {
+      openLoginBtn.addEventListener('click', () => {
+        closeDetailModal();
+        openLoginModal();
+      });
+    }
+
+    // Listener de estrellas interactivas
+    let chosenRating = 5;
+    const starBtns = elements.detailModalContent.querySelectorAll('.star-btn');
+    const starHint = document.getElementById('star-hint');
+    starBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        chosenRating = parseInt(btn.getAttribute('data-rating'), 10);
+        if (starHint) starHint.innerHTML = `Calificación: <strong>${chosenRating} ${chosenRating === 1 ? 'estrella' : 'estrellas'}</strong>`;
+        starBtns.forEach((b, i) => {
+          if (i < chosenRating) {
+            b.classList.remove('opacity-40');
+          } else {
+            b.classList.add('opacity-40');
+          }
+        });
+      });
+    });
+
+    // Formulario de envío de reseña
+    const reviewForm = document.getElementById('review-submit-form');
+    if (reviewForm) {
+      reviewForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const comment = (document.getElementById('review-comment-input').value || '').trim();
+        if (comment.length < 3) {
+          showToast('Escribí un comentario breve sobre el servicio', 'error');
+          return;
+        }
+
+        const newReview = {
+          id: 'rev_' + Date.now(),
+          profesionalId: p.id,
+          autorNombre: user.nombre,
+          autorEmail: user.email,
+          calificacion: chosenRating,
+          comentario: comment,
+          fecha: new Date().toISOString().split('T')[0]
+        };
+
+        state.reviews.unshift(newReview);
+        setStoredData(STORAGE_KEYS.REVIEWS, state.reviews);
+        
+        // Recalcular promedio y total en tiempo real
+        recalculateStats(p.id);
+
+        // Guardar profesionales actualizados si es necesario
+        setStoredData(STORAGE_KEYS.PROFESIONALES, state.professionals.filter(pr => pr.id.startsWith('prof_') && parseInt(pr.id.replace('prof_', ''), 10) > 1000));
+
+        // Re-renderizar catálogo y modal
+        renderCards(state.professionals);
+        openDetailModal(p);
+        showToast(`¡Gracias ${user.nombre}! Tu opinión fue publicada con éxito.`, 'success');
       });
     }
 
@@ -492,12 +842,93 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 8. MODAL Y VALIDACIÓN DEL FORMULARIO (Error State)
+  // 9. GESTIÓN DEL PERFIL Y GALERÍA (PRO)
+  // ==========================================
+  function openProfileManageModal() {
+    const user = state.currentUser;
+    if (!user || user.rol !== 'profesional') {
+      showToast('Solo los profesionales tienen acceso a este panel', 'error');
+      return;
+    }
+
+    // Buscar el profesional asociado (por linkedProfessionalId o nombre)
+    const profId = user.linkedProfessionalId || 'prof_001';
+    let prof = state.professionals.find(p => p.id === profId);
+    if (!prof) prof = state.professionals[0];
+
+    // Cargar datos en los inputs
+    if (elements.manageMatricula) elements.manageMatricula.value = prof.matricula || '';
+    if (elements.manageTelefono) elements.manageTelefono.value = prof.telefono || '';
+    if (elements.manageDisponibilidad) elements.manageDisponibilidad.value = prof.disponibilidad || '';
+    if (elements.manageDescripcion) elements.manageDescripcion.value = prof.descripcion || '';
+
+    renderManageGallery(prof);
+
+    elements.profileManageModal.classList.remove('hidden');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeProfileManageModal() {
+    if (!elements.profileManageModal) return;
+    elements.profileManageModal.classList.add('hidden');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  function renderManageGallery(prof) {
+    if (!elements.manageGalleryGrid) return;
+    const gallery = prof.galeria || [];
+
+    if (gallery.length === 0) {
+      elements.manageGalleryGrid.innerHTML = `
+        <div class="col-span-full p-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 text-center text-xs text-slate-500">
+          Aún no subiste fotos. ¡Hacé clic en "Subir Fotos" para mostrar tus trabajos!
+        </div>
+      `;
+      return;
+    }
+
+    elements.manageGalleryGrid.innerHTML = gallery.map((img, idx) => `
+      <div class="relative group rounded-xl overflow-hidden aspect-video bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600">
+        <img src="${img}" alt="Foto ${idx + 1}" class="w-full h-full object-cover">
+        <button type="button" 
+                data-index="${idx}" 
+                class="delete-gallery-photo-btn absolute top-1.5 right-1.5 p-1 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white shadow-md transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    `).join('');
+
+    // Listener para eliminar fotos
+    elements.manageGalleryGrid.querySelectorAll('.delete-gallery-photo-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const idx = parseInt(btn.getAttribute('data-index'), 10);
+        prof.galeria.splice(idx, 1);
+        persistUpdatedProfessional(prof);
+        renderManageGallery(prof);
+        renderCards(state.professionals);
+        showToast('Foto eliminada de tu galería', 'info');
+      });
+    });
+  }
+
+  function persistUpdatedProfessional(prof) {
+    // Guardar en array de profesionales en LocalStorage
+    const stored = getStoredData(STORAGE_KEYS.PROFESIONALES, []);
+    const existingIdx = stored.findIndex(p => p.id === prof.id);
+    if (existingIdx !== -1) {
+      stored[existingIdx] = prof;
+    } else {
+      stored.unshift(prof);
+    }
+    setStoredData(STORAGE_KEYS.PROFESIONALES, stored);
+  }
+
+  // ==========================================
+  // 10. MODAL Y VALIDACIÓN DEL FORMULARIO DE REGISTRO
   // ==========================================
   function openRegisterModal() {
     elements.registerModal.classList.remove('hidden');
     document.body.classList.add('overflow-hidden');
-    // Limpiar errores previos
     clearFormErrors();
   }
 
@@ -535,54 +966,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const barrio = document.getElementById('reg-barrio').value;
     const telefono = document.getElementById('reg-telefono').value.trim();
     const experiencia = document.getElementById('reg-experiencia').value.trim();
+    const matricula = elements.registerMatriculaInput ? elements.registerMatriculaInput.value.trim() : '';
     const descripcion = document.getElementById('reg-descripcion').value.trim();
     const serviciosRaw = document.getElementById('reg-servicios').value.trim();
 
     let hasErrors = false;
 
-    // Validación: Nombre
     if (nombre.length < 3) {
       showFieldError('reg-nombre', 'Ingresá tu nombre y apellido (mínimo 3 letras).');
       hasErrors = true;
     }
 
-    // Validación: Rubro
     if (!rubro) {
       showFieldError('reg-rubro', 'Por favor seleccioná tu oficio principal.');
       hasErrors = true;
     }
 
-    // Validación: Barrio
     if (!barrio) {
       showFieldError('reg-barrio', 'Por favor seleccioná el barrio donde prestás servicio.');
       hasErrors = true;
     }
 
-    // Validación: Teléfono (mínimo 8 dígitos)
     const cleanPhone = telefono.replace(/\D/g, '');
     if (cleanPhone.length < 8) {
       showFieldError('reg-telefono', 'Ingresá un número de WhatsApp válido (ej. 3584123456).');
       hasErrors = true;
     }
 
-    // Validación: Descripción (mínimo 10 caracteres)
     if (descripcion.length < 10) {
       showFieldError('reg-descripcion', 'Escribí una descripción detallada de tu trabajo (al menos 10 caracteres).');
       hasErrors = true;
     }
 
     if (hasErrors) {
-      // ⚠️ Error State
       showToast('Por favor corregí los campos marcados en rojo', 'error');
       return;
     }
 
-    // Crear nuevo objeto profesional
     const servicios = serviciosRaw
       ? serviciosRaw.split(',').map(s => s.trim()).filter(Boolean)
       : [rubro, 'Presupuestos sin cargo'];
 
-    // Foto seleccionada desde el dispositivo (Base64) o asignación automática con UI Avatars
     const defaultAvatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(nombre)}&background=0f172a&color=f97316&bold=true&size=300`;
     const finalPhoto = selectedPhotoBase64 || defaultAvatar;
 
@@ -593,27 +1017,26 @@ document.addEventListener('DOMContentLoaded', () => {
       barrio,
       telefono: cleanPhone,
       experiencia: experiencia ? `${experiencia} años de experiencia` : 'Oficio calificado',
+      matricula: matricula || null, // Matrícula profesional opcional
       descripcion,
       calificacion: 5.0,
-      resenasCount: 1,
-      verificado: true, // Nuevo miembro avalado por la comunidad
-      destacado: true,  // Beneficio de bienvenida
+      resenasCount: 0,
+      verificado: true,
+      destacado: true,
       disponibilidad: 'A coordinar por WhatsApp',
       servicios,
       foto: finalPhoto,
       imagenUrl: finalPhoto,
+      galeria: [],
       fechaRegistro: new Date().toISOString()
     };
 
-    // Guardar en LocalStorage
     const stored = getStoredData(STORAGE_KEYS.PROFESIONALES, []);
     stored.unshift(newProfessional);
     setStoredData(STORAGE_KEYS.PROFESIONALES, stored);
 
-    // Actualizar estado en memoria
     state.professionals.unshift(newProfessional);
 
-    // Renderizar y confirmar (✅ Success State)
     closeRegisterModal();
     applyFilters();
     showToast(`¡Bienvenido ${nombre}! Tu perfil ya está publicado en Oficios Barriales.`, 'success');
@@ -631,9 +1054,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 9. SISTEMA DE TOAST (Success / Error State)
+  // 11. SISTEMA DE TOAST (Success / Error / Info)
   // ==========================================
   function showToast(message, type = 'success') {
+    if (!elements.toastContainer) return;
     const toast = document.createElement('div');
     const colors = {
       success: 'bg-emerald-600 text-white border-emerald-700 shadow-emerald-600/30',
@@ -658,17 +1082,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.toastContainer.appendChild(toast);
 
-    // Animación de entrada
     requestAnimationFrame(() => {
       toast.classList.remove('translate-y-3', 'opacity-0');
       toast.classList.add('translate-y-0', 'opacity-100');
     });
 
-    // Cierre manual
     const closeBtn = toast.querySelector('button');
-    closeBtn.addEventListener('click', () => removeToast(toast));
+    if (closeBtn) closeBtn.addEventListener('click', () => removeToast(toast));
 
-    // Auto-cierre tras 4 segundos
     setTimeout(() => {
       removeToast(toast);
     }, 4000);
@@ -682,10 +1103,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // ==========================================
-  // 10. LISTENERS Y ENLACE DE EVENTOS
+  // 12. LISTENERS Y ENLACE DE EVENTOS
   // ==========================================
   function setupEventListeners() {
-    // Cambio en filtros
+    // Filtros
     elements.rubroSelect.addEventListener('change', (e) => {
       state.selectedRubro = e.target.value;
       applyFilters();
@@ -696,7 +1117,6 @@ document.addEventListener('DOMContentLoaded', () => {
       applyFilters();
     });
 
-    // Búsqueda con debounce simple
     let searchDebounce;
     elements.searchField.addEventListener('input', (e) => {
       clearTimeout(searchDebounce);
@@ -706,11 +1126,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }, 250);
     });
 
-    // Botones para restablecer filtros
     if (elements.resetFiltersBtn) elements.resetFiltersBtn.addEventListener('click', resetFilters);
     if (elements.clearFiltersEmptyBtn) elements.clearFiltersEmptyBtn.addEventListener('click', resetFilters);
-
-    // Toggle de tema
     if (elements.themeToggleBtn) elements.themeToggleBtn.addEventListener('click', toggleTheme);
 
     // Modal de Detalle
@@ -732,14 +1149,12 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        // Validación de tipo de archivo (solo imágenes)
         if (!file.type.startsWith('image/')) {
           showToast('El archivo debe ser una imagen válida (PNG, JPG, WebP)', 'error');
           resetPhotoPreview();
           return;
         }
 
-        // Validación de tamaño (máx 4MB para persistencia en LocalStorage)
         if (file.size > 4 * 1024 * 1024) {
           showToast('La foto no debe superar los 4MB', 'error');
           resetPhotoPreview();
@@ -763,11 +1178,98 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // Modal de Login
+    if (elements.loginModalCloseBtn) elements.loginModalCloseBtn.addEventListener('click', closeLoginModal);
+    if (elements.loginModalBackdrop) elements.loginModalBackdrop.addEventListener('click', closeLoginModal);
+
+    if (elements.loginDemoSofiaBtn) {
+      elements.loginDemoSofiaBtn.addEventListener('click', () => loginUser('sofia@demo.com'));
+    }
+    if (elements.loginDemoCarlosBtn) {
+      elements.loginDemoCarlosBtn.addEventListener('click', () => loginUser('carlos@demo.com'));
+    }
+
+    if (elements.loginForm) {
+      elements.loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const email = (elements.loginEmailInput.value || '').trim();
+        if (!email || !email.includes('@')) {
+          if (elements.loginEmailError) {
+            elements.loginEmailError.textContent = 'Ingresá un correo electrónico válido';
+            elements.loginEmailError.classList.remove('hidden');
+          }
+          return;
+        }
+        loginUser(email);
+      });
+    }
+
+    // Modal de Gestión de Perfil & Galería
+    if (elements.profileManageCloseBtn) elements.profileManageCloseBtn.addEventListener('click', closeProfileManageModal);
+    if (elements.profileManageBackdrop) elements.profileManageBackdrop.addEventListener('click', closeProfileManageModal);
+
+    if (elements.profileManageForm) {
+      elements.profileManageForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const user = state.currentUser;
+        if (!user || user.rol !== 'profesional') return;
+
+        const profId = user.linkedProfessionalId || 'prof_001';
+        const prof = state.professionals.find(p => p.id === profId);
+        if (!prof) return;
+
+        prof.matricula = elements.manageMatricula.value.trim() || null;
+        prof.telefono = elements.manageTelefono.value.trim();
+        prof.disponibilidad = elements.manageDisponibilidad.value.trim();
+        prof.descripcion = elements.manageDescripcion.value.trim();
+
+        persistUpdatedProfessional(prof);
+        renderCards(state.professionals);
+        closeProfileManageModal();
+        showToast('Perfil profesional actualizado con éxito', 'success');
+      });
+    }
+
+    // Carga de Fotos a la Galería del Profesional (FileReader API multiple)
+    if (elements.galleryInput) {
+      elements.galleryInput.addEventListener('change', (e) => {
+        const user = state.currentUser;
+        if (!user || user.rol !== 'profesional') return;
+        const profId = user.linkedProfessionalId || 'prof_001';
+        const prof = state.professionals.find(p => p.id === profId);
+        if (!prof) return;
+
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        if (!prof.galeria) prof.galeria = [];
+
+        let processed = 0;
+        files.forEach(file => {
+          if (!file.type.startsWith('image/')) return;
+          const reader = new FileReader();
+          reader.onload = function(evt) {
+            prof.galeria.push(evt.target.result);
+            processed++;
+            if (processed === files.length) {
+              persistUpdatedProfessional(prof);
+              renderManageGallery(prof);
+              renderCards(state.professionals);
+              showToast(`${processed} ${processed === 1 ? 'foto agregada' : 'fotos agregadas'} a tu galería`, 'success');
+            }
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    }
+
     // Atajo de teclado: Escape cierra cualquier modal abierto
     window.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        if (!elements.detailModal.classList.contains('hidden')) closeDetailModal();
-        if (!elements.registerModal.classList.contains('hidden')) closeRegisterModal();
+        if (elements.detailModal && !elements.detailModal.classList.contains('hidden')) closeDetailModal();
+        if (elements.registerModal && !elements.registerModal.classList.contains('hidden')) closeRegisterModal();
+        if (elements.loginModal && !elements.loginModal.classList.contains('hidden')) closeLoginModal();
+        if (elements.profileManageModal && !elements.profileManageModal.classList.contains('hidden')) closeProfileManageModal();
       }
     });
   }
@@ -776,4 +1278,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   setupEventListeners();
   loadInitialData();
+  initAuth();
 });

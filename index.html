@@ -91,8 +91,14 @@
         </div>
       </a>
 
-      <!-- Acciones de Navegación -->
-      <div class="flex items-center gap-3">
+      <!-- Acciones de Navegación y Sesión -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        
+        <!-- Widget de Sesión Activa / Selector Demo -->
+        <div id="auth-nav-container" class="flex items-center gap-2">
+          <!-- Inyectado dinámicamente por app.js (Login, Perfil, Selector Demo) -->
+        </div>
+
         <!-- Selector Modo Claro / Oscuro -->
         <button type="button" 
                 id="theme-toggle-btn" 
@@ -111,12 +117,12 @@
 
         <!-- CTA "Sumate como Profesional" -->
         <button type="button" 
-                class="open-register-btn inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-md shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                class="open-register-btn inline-flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-md shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
           </svg>
-          <span class="hidden sm:inline">Sumate como Profesional</span>
-          <span class="sm:hidden">Sumarme</span>
+          <span class="hidden md:inline">Sumate como Profesional</span>
+          <span class="md:hidden">Sumarme</span>
         </button>
       </div>
 
@@ -464,6 +470,21 @@
           </div>
         </div>
 
+        <!-- Matrícula / Registro Técnico (Opcional) -->
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label for="reg-matricula" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300">
+              Matrícula / Registro Técnico <span class="text-slate-400 font-normal lowercase">(opcional)</span>
+            </label>
+            <span class="text-[11px] text-slate-400">ERSeP, Ecogas, Colegio</span>
+          </div>
+          <input type="text" 
+                 id="reg-matricula" 
+                 placeholder="Ej: ERSeP Cat. III - Mat. 4812 o Ecogas N° 9823" 
+                 class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm transition-all">
+          <p class="text-[11px] text-slate-400 mt-1">Si la especificás, se mostrará la insignia oficial de "Matriculado" en tu perfil.</p>
+        </div>
+
         <!-- Servicios frecuentes (separados por coma) -->
         <div>
           <label for="reg-servicios" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
@@ -498,6 +519,197 @@
         </div>
 
       </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 7. MODAL: INICIO DE SESIÓN Y SELECTOR DEMO -->
+  <!-- ========================================== -->
+  <div id="login-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 sm:p-6 overflow-y-auto" role="dialog" aria-modal="true">
+    <div id="login-modal-backdrop" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"></div>
+    
+    <div class="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-10 my-8">
+      <button type="button" 
+              id="login-modal-close" 
+              aria-label="Cerrar modal de inicio de sesión"
+              class="absolute top-5 right-5 z-20 p-2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <div class="p-6 sm:p-7 border-b border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50">
+        <span class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 text-xs font-bold uppercase tracking-wider mb-2">
+          Control de Acceso
+        </span>
+        <h2 class="text-2xl font-black text-slate-900 dark:text-white">Iniciar Sesión</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Elegí un usuario demo para evaluar la experiencia de Cliente o Profesional en Río Cuarto.
+        </p>
+      </div>
+
+      <div class="p-6 sm:p-7 space-y-5">
+        <!-- Accesos rápidos Demo -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">
+            Perfiles Demo Pre-configurados
+          </label>
+          <div class="space-y-2.5">
+            <!-- Botón Sofía (Cliente) -->
+            <button type="button" 
+                    id="login-demo-sofia-btn" 
+                    class="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-orange-500/80 hover:bg-orange-50/40 dark:hover:bg-slate-700/60 transition-all text-left group">
+              <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80" 
+                   alt="Sofía Martínez" 
+                   class="w-11 h-11 rounded-xl object-cover ring-2 ring-orange-500/30">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-bold text-slate-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400">Sofía Martínez</h4>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">Cliente / Vecina</span>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">sofia@demo.com • Publica calificaciones y reseñas</p>
+              </div>
+            </button>
+
+            <!-- Botón Carlos (Profesional) -->
+            <button type="button" 
+                    id="login-demo-carlos-btn" 
+                    class="w-full flex items-center gap-3.5 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 hover:border-orange-500/80 hover:bg-orange-50/40 dark:hover:bg-slate-700/60 transition-all text-left group">
+              <img src="https://images.unsplash.com/photo-1540569014015-19a7be504e3a?auto=format&fit=crop&w=150&q=80" 
+                   alt="Carlos Peralta" 
+                   class="w-11 h-11 rounded-xl object-cover ring-2 ring-orange-500/30">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between">
+                  <h4 class="text-sm font-bold text-slate-900 dark:text-white group-hover:text-orange-600 dark:group-hover:text-orange-400">Carlos "Tato" Peralta</h4>
+                  <span class="text-[11px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-950/60 dark:text-orange-300">Profesional</span>
+                </div>
+                <p class="text-xs text-slate-500 dark:text-slate-400 truncate">carlos@demo.com • Gestiona su perfil y galería de trabajos</p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="relative flex py-1 items-center">
+          <div class="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+          <span class="flex-shrink mx-3 text-xs uppercase tracking-wider text-slate-400">o ingresá con email</span>
+          <div class="flex-grow border-t border-slate-200 dark:border-slate-700"></div>
+        </div>
+
+        <!-- Formulario por email -->
+        <form id="login-form" novalidate class="space-y-3">
+          <div>
+            <label for="login-email-input" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+              Correo Electrónico
+            </label>
+            <input type="email" 
+                   id="login-email-input" 
+                   placeholder="ej: sofia@demo.com o carlos@demo.com" 
+                   class="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 text-sm transition-all">
+            <p id="login-email-error" class="hidden text-xs font-semibold text-rose-500 mt-1"></p>
+          </div>
+          <button type="submit" 
+                  id="login-submit-btn" 
+                  class="w-full py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold text-sm shadow-md transition-all">
+            Ingresar
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 8. MODAL: GESTIÓN DE PERFIL Y GALERÍA (PRO) -->
+  <!-- ========================================== -->
+  <div id="profile-manage-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 sm:p-6 overflow-y-auto" role="dialog" aria-modal="true">
+    <div id="profile-manage-backdrop" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"></div>
+    
+    <div class="relative w-full max-w-2xl bg-white dark:bg-slate-800 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden z-10 my-8 max-h-[90vh] flex flex-col">
+      <button type="button" 
+              id="profile-manage-close" 
+              aria-label="Cerrar gestión de perfil"
+              class="absolute top-5 right-5 z-20 p-2 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <div class="p-6 sm:p-7 border-b border-slate-100 dark:border-slate-700/80 bg-slate-50/50 dark:bg-slate-800/50 shrink-0">
+        <span class="inline-block px-3 py-1 rounded-full bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 text-xs font-bold uppercase tracking-wider mb-2">
+          Panel del Profesional
+        </span>
+        <h2 class="text-2xl font-black text-slate-900 dark:text-white">Gestionar Mi Perfil & Trabajos</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+          Actualizá tus datos, matrícula técnica y sumá fotos de tus trabajos terminados.
+        </p>
+      </div>
+
+      <div class="p-6 sm:p-7 overflow-y-auto space-y-6">
+        <!-- Formulario de datos del perfil -->
+        <form id="profile-manage-form" class="space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label for="manage-matricula" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                Matrícula / Registro Técnico (Opcional)
+              </label>
+              <input type="text" 
+                     id="manage-matricula" 
+                     placeholder="Ej: ERSeP Cat. III - Mat. 4812" 
+                     class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            </div>
+            <div>
+              <label for="manage-telefono" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+                Teléfono WhatsApp
+              </label>
+              <input type="tel" 
+                     id="manage-telefono" 
+                     class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+            </div>
+          </div>
+
+          <div>
+            <label for="manage-disponibilidad" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+              Días y Horarios de Atención
+            </label>
+            <input type="text" 
+                   id="manage-disponibilidad" 
+                   placeholder="Ej: Lunes a Sábado de 8 a 19 hs (Urgencias 24hs)" 
+                   class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none">
+          </div>
+
+          <div>
+            <label for="manage-descripcion" class="block text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 mb-1">
+              Descripción de tus Servicios
+            </label>
+            <textarea id="manage-descripcion" 
+                      rows="3" 
+                      class="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-orange-500 focus:outline-none"></textarea>
+          </div>
+
+          <div class="flex justify-end pt-2">
+            <button type="submit" 
+                    id="save-profile-btn" 
+                    class="px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white font-bold text-sm shadow-md transition-all">
+              Guardar Cambios de Perfil
+            </button>
+          </div>
+        </form>
+
+        <div class="border-t border-slate-200 dark:border-slate-700 pt-5">
+          <!-- Galería de Trabajos Realizados -->
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 dark:text-white">Galería de Trabajos Realizados</h3>
+              <p class="text-xs text-slate-500 dark:text-slate-400">Subí fotos de tus obras e instalaciones desde tu celular o computadora.</p>
+            </div>
+            <label for="gallery-input" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold shadow-md cursor-pointer transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Subir Fotos</span>
+            </label>
+            <input type="file" id="gallery-input" accept="image/*" multiple class="hidden">
+          </div>
+
+          <!-- Grid de fotos cargadas actualmente -->
+          <div id="manage-gallery-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <!-- Inyectado dinámicamente -->
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
