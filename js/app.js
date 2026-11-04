@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     themeIconLight: document.getElementById('theme-icon-light'),
     themeIconDark: document.getElementById('theme-icon-dark'),
     authNavContainer: document.getElementById('auth-nav-container'),
+    ctaJoinContainer: document.getElementById('cta-join-container'),
     // Modal de Detalle
     detailModal: document.getElementById('detail-modal'),
     detailModalBackdrop: document.getElementById('detail-modal-backdrop'),
@@ -156,9 +157,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
-
-  // ==========================================
-  // 5. AUTENTICACIÓN Y USUARIOS DEMO
+// ==========================================
+  // 5. AUTENTICACIÓN Y USUARIOS DEMO (CORREGIDO)
   // ==========================================
   function initAuth() {
     state.currentUser = getStoredData(STORAGE_KEYS.ACTIVE_USER, null);
@@ -166,18 +166,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function loginUser(email) {
-    // Limpieza explícita de sesión previa
     try {
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
     } catch (err) {
-      console.warn('Error al resetear ACTIVE_USER en LocalStorage:', err);
+      console.warn('Error al resetear ACTIVE_USER:', err);
     }
 
     const demoUsers = window.DEMO_USERS || [];
     let user = demoUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
 
     if (!user) {
-      // Si el email no coincide con los demo, creamos un cliente con ese email
       user = {
         id: 'user_' + Date.now(),
         email: email,
@@ -191,19 +189,14 @@ document.addEventListener('DOMContentLoaded', () => {
     state.currentUser = user;
     setStoredData(STORAGE_KEYS.ACTIVE_USER, user);
 
-    // Cerrar modal de login y gestión de perfil si no corresponde
     closeLoginModal();
     if (user.rol !== 'profesional') {
       closeProfileManageModal();
     }
 
-    // Re-renderizado reactivo inmediato de la barra de navegación
     renderAuthNav();
-
-    // Re-ejecutar filtrado/catálogo para refrescar visibilidad de controles según nuevo rol
     applyFilters();
 
-    // Si el modal de detalle está abierto, refrescarlo para adaptar los controles de reseña
     if (state.selectedProfessional) {
       openDetailModal(state.selectedProfessional);
     } else {
@@ -216,28 +209,23 @@ document.addEventListener('DOMContentLoaded', () => {
   function logoutUser() {
     state.currentUser = null;
 
-    // Limpiar explícitamente ob_active_user de LocalStorage
     try {
       localStorage.removeItem(STORAGE_KEYS.ACTIVE_USER);
     } catch (err) {
       console.warn('Error al remover ob_active_user de LocalStorage:', err);
     }
 
-    // Cerrar modales abiertos
+    // Asegurar que cerramos modales y destrabamos el scroll del body
     closeLoginModal();
     closeProfileManageModal();
+    document.body.classList.remove('overflow-hidden');
 
-    // Re-renderizado reactivo inmediato de la barra de navegación (#auth-nav-container)
+    // Re-renderizar barra de navegación y catálogo reactivamente
     renderAuthNav();
-
-    // Re-ejecutar filtrado/catálogo de profesionales
     applyFilters();
 
-    // Si el modal de detalle está abierto, actualizar controles (pasa de cliente a invitado)
     if (state.selectedProfessional) {
       openDetailModal(state.selectedProfessional);
-    } else {
-      document.body.classList.remove('overflow-hidden');
     }
 
     showToast('Sesión cerrada correctamente', 'info');
@@ -248,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const user = state.currentUser;
 
     if (!user) {
-      // Estado Invitado: Botón Iniciar Sesión y atajos rápidos
+      // Estado Invitado: Botón para ingresar
       elements.authNavContainer.innerHTML = `
         <button type="button" 
                 id="open-login-btn" 
@@ -259,12 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
       `;
       const btn = document.getElementById('open-login-btn');
       if (btn) btn.addEventListener('click', openLoginModal);
+
     } else {
-      // Usuario autenticado
+      // Usuario Autenticado con Dropdown interactivo vía JS
       const isPro = user.rol === 'profesional';
       elements.authNavContainer.innerHTML = `
-        <div class="flex items-center gap-2">
-          <!-- Datos del usuario -->
+        <div class="flex items-center gap-2 relative">
           <div class="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
             <img src="${user.avatar}" alt="${user.nombre}" class="w-6 h-6 rounded-lg object-cover ring-1 ring-orange-500/50">
             <div class="hidden sm:flex flex-col text-left">
@@ -273,28 +261,26 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
           </div>
 
-          <!-- Botón Especial para el Profesional: Gestionar Trabajos -->
           ${isPro ? `
             <button type="button" 
                     id="open-profile-manage-btn" 
-                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white text-xs font-bold shadow-sm transition-all" 
-                    title="Editar mi perfil y subir fotos a mi galería">
+                    class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-orange-500 dark:hover:bg-orange-600 text-white text-xs font-bold shadow-sm transition-all">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
               <span class="hidden md:inline">Mi Perfil & Trabajos</span>
               <span class="md:hidden">Mi Perfil</span>
             </button>
           ` : ''}
 
-          <!-- Selector rápido de cambio / salir -->
-          <div class="relative group">
+          <!-- Dropdown Toggle por Clic -->
+          <div class="relative">
             <button type="button" 
                     id="auth-menu-btn" 
                     class="p-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-slate-800 dark:hover:text-white transition-colors"
-                    title="Cambiar usuario o cerrar sesión">
+                    title="Opciones de cuenta">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"/></svg>
             </button>
-            <div class="absolute right-0 top-full mt-2 w-48 py-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 hidden group-hover:block z-50">
-              <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700">Cambiar Perfil</div>
+            <div id="auth-dropdown-menu" class="absolute right-0 top-full mt-2 w-52 py-2 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-700 hidden z-50">
+              <div class="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 dark:border-slate-700">Cambiar Perfil Demo</div>
               <button type="button" id="switch-to-sofia-btn" class="w-full text-left px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2">
                 <span class="w-2 h-2 rounded-full bg-blue-500"></span> Sofía (Cliente Demo)
               </button>
@@ -311,7 +297,19 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       `;
 
-      // Listeners
+      // Eventos JS para control total del Dropdown
+      const menuBtn = document.getElementById('auth-menu-btn');
+      const dropdown = document.getElementById('auth-dropdown-menu');
+
+      if (menuBtn && dropdown) {
+        menuBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          dropdown.classList.toggle('hidden');
+        });
+
+        document.addEventListener('click', () => dropdown.classList.add('hidden'), { once: true });
+      }
+
       const openProBtn = document.getElementById('open-profile-manage-btn');
       if (openProBtn) openProBtn.addEventListener('click', openProfileManageModal);
 
@@ -323,6 +321,37 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const logout = document.getElementById('logout-btn');
       if (logout) logout.addEventListener('click', logoutUser);
+    }
+
+    renderHeaderCTA();
+  }
+
+  function renderHeaderCTA() {
+    const container = elements.ctaJoinContainer;
+    if (!container) return;
+
+    const user = state.currentUser;
+
+    if (!user) {
+      // Invitado: Botón para sumarse como profesional
+      container.innerHTML = `
+        <button type="button"
+                id="cta-join-btn"
+                class="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold text-sm shadow-md shadow-orange-500/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          <span class="hidden md:inline">Sumate como Profesional</span>
+          <span class="md:hidden">Sumarme</span>
+        </button>
+      `;
+      const ctaBtn = document.getElementById('cta-join-btn');
+      if (ctaBtn) ctaBtn.addEventListener('click', openLoginModal);
+
+    } else {
+      // Usuario Autenticado (Cliente o Profesional): 
+      // Se vacía este espacio para no duplicar el botón de la barra de navegación
+      container.innerHTML = '';
     }
   }
 
@@ -499,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 ` : ''}
               </div>
 
-              <div class="flex-1 min-w-0">
+              <div class="flex-1 min-w-0 ${isDestacado ? 'pr-20 sm:pr-24' : ''}">
                 <h3 class="text-lg font-bold text-slate-900 dark:text-white truncate">${p.nombre}</h3>
                 <p class="text-sm font-semibold text-orange-600 dark:text-orange-400 mt-0.5">${p.rubro}</p>
                 <div class="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 mt-1">
